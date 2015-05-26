@@ -1,0 +1,16 @@
+---
+- name: Build an image with the command module
+  hosts: vagrant
+  tasks:
+    - name: upload the site directory to the docker host
+      synchronize: src=site dest=/tmp
+
+    - name: build the image
+      command: docker build -t built-by-ansible:ex2 /tmp/site
+
+    - name: run the site in a docker container
+      docker:
+        name: site2
+        image: "built-by-ansible:ex2"
+        state: reloaded
+        publish_all_ports: yes

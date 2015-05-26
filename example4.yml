@@ -1,0 +1,45 @@
+---
+- name: Build an image by running ansible in a container (improved)
+  hosts: vagrant
+
+  tasks:
+    - name: check for existence of our base image
+      shell: "docker images | grep built-by-ansible | grep ex3"
+      ignore_errors: yes
+      register: image_check
+
+    - name: determine the base image and temp container names
+      set_fact:
+        base_image: "{{'built-by-ansible:ex3' if image_check.rc == 0 else 'ansible/ubuntu14.04-ansible:latest'}}"
+        temp_container_name: ex3_build_{{lookup('pipe', 'date "+%Y%m%d%H%M%S"')}}
+
+    - name: upload the site directory to the docker host
+      synchronize: src=site dest=/tmp
+
+- name:
+  hosts: docker
+  connection: docker
+  builds_image: "built-by-ansible:ex4"
+  from_image: ubuntu:latest
+  tasks:
+    - name: install nginx
+      apt: pkg=nginx state=installed
+
+    - name: create the site directory
+      file: dest=/var/www/site state=directory recurse=yes
+
+    - name: copy the site directory in place
+      synchronize: src=/site dest=/var/www
+
+    - name: add the nginx configuration
+      template: src=/site/nginx.conf dest=/etc/nginx/nginx.conf
+
+- name: Build an image by running ansible in a container (improved)
+  hosts: vagrant
+  tasks:
+    - name: run the site in a docker container
+      docker:
+        name: site3
+        image: "built-by-ansible:ex3"
+        state: reloaded
+        publish_all_ports: yes

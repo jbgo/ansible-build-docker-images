@@ -1,0 +1,15 @@
+---
+- name: configure the container with ansible
+  hosts: localhost
+  tasks:
+    - name: install nginx
+      apt: pkg=nginx state=installed
+
+    - name: create the site directory
+      file: dest=/var/www/site state=directory recurse=yes
+
+    - name: copy the site directory in place
+      synchronize: src=/site dest=/var/www
+
+    - name: add the nginx configuration
+      template: src=/site/nginx.conf dest=/etc/nginx/nginx.conf

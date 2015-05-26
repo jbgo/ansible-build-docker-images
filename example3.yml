@@ -1,0 +1,36 @@
+---
+- name: Build an image by running ansible in a container
+  hosts: vagrant
+
+  tasks:
+    - name: create a unique temp container name
+      set_fact:
+        temp_container_name: ex3_build_{{lookup('pipe', 'date "+%Y%m%d%H%M%S"')}}
+
+    - name: upload the site directory to the docker host
+      synchronize: src=site dest=/tmp
+
+    - name: build site by running ansible in a docker container
+      command: "docker run
+        -v /tmp/site:/site
+        -w /site
+        --name={{temp_container_name}}
+        ansible/ubuntu14.04-ansible:latest
+        ansible-playbook playbook.yml -c local"
+
+    - name: create a docker image from the container
+      command: "docker commit
+        -c 'EXPOSE 80'
+        -c 'CMD [\"nginx\", \"-g\", \"daemon off;\"]'
+        {{temp_container_name}}
+        built-by-ansible:ex3"
+
+    - name: delete the container once the image has been successfully built
+      command: docker rm -f -v {{temp_container_name}}
+
+    - name: run the site in a docker container
+      docker:
+        name: site3
+        image: "built-by-ansible:ex3"
+        state: reloaded
+        publish_all_ports: yes

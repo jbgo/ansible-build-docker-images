@@ -1,0 +1,42 @@
+---
+- name: Build an image by running ansible in a container (improved)
+  hosts: vagrant
+
+  tasks:
+    - name: check for existence of our base image
+      shell: "docker images | grep built-by-ansible | grep ex3"
+      ignore_errors: yes
+      register: image_check
+
+    - name: determine the base image and temp container names
+      set_fact:
+        base_image: "{{'built-by-ansible:ex3' if image_check.rc == 0 else 'ansible/ubuntu14.04-ansible:latest'}}"
+        temp_container_name: ex3_build_{{lookup('pipe', 'date "+%Y%m%d%H%M%S"')}}
+
+    - name: upload the site directory to the docker host
+      synchronize: src=site dest=/tmp
+
+    - name: build site by running ansible in a docker container
+      command: "docker run
+        -v /tmp/site:/site
+        -w /site
+        --name={{temp_container_name}}
+        {{base_image}}
+        ansible-playbook playbook.yml -c local"
+
+    - name: create a docker image from the container
+      command: "docker commit
+        -c 'EXPOSE 80'
+        -c 'CMD [\"nginx\", \"-g\", \"daemon off;\"]'
+        {{temp_container_name}}
+        built-by-ansible:ex3"
+
+    - name: delete the container once the image has been successfully built
+      command: docker rm -f -v {{temp_container_name}}
+
+    - name: run the site in a docker container
+      docker:
+        name: site3
+        image: "built-by-ansible:ex3"
+        state: reloaded
+        publish_all_ports: yes

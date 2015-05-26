@@ -1,0 +1,16 @@
+---
+- name: Build an image with the command module for a remote docker host
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: build the image
+      command: docker build -t built-by-ansible:ex2b ./site
+
+    - name: run the site in a docker container
+      docker:
+        name: site2b
+        image: "built-by-ansible:ex2b"
+        state: reloaded
+        publish_all_ports: yes
+        use_tls: encrypt
