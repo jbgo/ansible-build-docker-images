@@ -1,0 +1,42 @@
+---
+- name: Install docker
+  hosts: all
+  sudo: yes
+  tasks:
+    - name: add docker apt key
+      apt_key: >
+        id=A88D21E9
+        url=http://get.docker.io/gpg
+        state=present
+
+    - name: add docker apt repository
+      apt_repository: >
+        repo="deb http://get.docker.io/ubuntu docker main"
+        state=present
+        update_cache=yes
+
+    - name: install docker
+      apt: pkg=lxc-docker state=latest
+
+    - name: configure docker
+      copy: content='DOCKER_OPTS=""'
+        dest=/etc/default/docker
+      notify: restart docker
+
+    - name: allow vagrant user to run docker commands without sudo
+      user: name=vagrant append=yes groups=docker
+
+    - name: install required python packages for ansible and docker
+      apt: pkg={{item}} state=latest
+      with_items: [python-pip, python-dev]
+
+    # As of ansible v1.9.1, the docker module uses an older version of the docker-py python package.
+    # https://github.com/ansible/ansible-modules-core/issues/1227
+    - name: install the version of docker-py used by ansible
+      pip: name=docker-py version=1.1.0
+
+  handlers:
+    # I can't use the service module because of an issue with ansible and upstart :(
+    # https://github.com/ansible/ansible-modules-core/issues/1170
+    - name: restart docker
+      command: service docker restart
